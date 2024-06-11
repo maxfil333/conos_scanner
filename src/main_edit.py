@@ -10,6 +10,7 @@ from PIL import Image
 from rotator import main as rotate
 from utils import is_scanned_pdf, count_pages, clear_pdf_waste_pages
 from utils import rename_files_in_directory
+from crop_tables import get_table_coords, crop_goods_table
 
 
 def main():
@@ -46,16 +47,31 @@ def main():
                 images = convert_from_path(file, first_page=0, last_page=3, fmt='jpg', jpegopt={"quality": 100},
                                            poppler_path=config["POPPLER_PATH"])
                 images = list(map(lambda x: np.array(x), images))
-
             # if file is image
             elif file_type.lower() in ['.jpg', '.jpeg', '.png']:
                 images = [np.array(Image.open(file))]
             else:
                 print(f'ERROR IN: {file}')
                 continue
+
+            # добавляем зумированное изображение в случае одностраничного документа
+            prefix = ''
+            if len(images) == 1:
+                image = images[0]
+                rotated = Image.fromarray(rotate(image))
+                table_coords = get_table_coords(rotated)
+                cropped = crop_goods_table(rotated, table_coords)
+                images = [rotated, cropped]
+                prefix = 'zoom'
+
             for i, image in enumerate(images):
                 rotated = Image.fromarray(rotate(image))
-                save_path = os.path.join(config['IN_FOLDER_EDIT'], file_name + f'_{i}_{file_type.replace(".", "")}' + '.jpg')
+                if i == 0:  # оригинальный файл или первая страница записывается без префиксов
+                    save_path = os.path.join(config['IN_FOLDER_EDIT'],
+                                             file_name + f'_{file_type.replace(".", "")}' + '.jpg')
+                else:  # далее добавляются префиксы
+                    save_path = os.path.join(config['IN_FOLDER_EDIT'],
+                                             file_name + f'_{file_type.replace(".", "")}_{prefix}{i}' + '.jpg')
                 if rotated.mode == "RGBA":
                     rotated = rotated.convert('RGB')
                 rotated.save(save_path, quality=100)
