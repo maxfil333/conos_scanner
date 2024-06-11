@@ -27,7 +27,6 @@ def base64_encode_pil(image: Image.Image):
 
 # _________ COMMON _________
 
-
 def group_files_by_name(file_list: list[str]) -> dict:
     groups = defaultdict(list)
     pattern = re.compile(r'^(.*?)(?:_(?:zoom)?\d+)?\.(\w{3,4})$')
