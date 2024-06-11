@@ -30,7 +30,7 @@ def base64_encode_pil(image: Image.Image):
 
 def group_files_by_name(file_list: list[str]) -> dict:
     groups = defaultdict(list)
-    pattern = re.compile(r'^(.*?)(?:_TAB\d+\+)?\.(\w{3,4})$')
+    pattern = re.compile(r'^(.*?)(?:_(?:zoom)?\d+)?\.(\w{3,4})$')
     for file_name in file_list:
         match = pattern.match(file_name)
         if match:
@@ -196,7 +196,7 @@ def clear_pdf_waste_pages(pdf_path):
     for page_num in range(num_pages):
         page = reader.pages[page_num]
         text = page.extract_text()
-        print(len(text))
+        # print(len(text))
         if len(text.strip()) > 8000:  # страница сплошного текста
             pass
         elif len(text.strip()) < 50:  # пустая страница или сканированная (нераспознаваемая)
