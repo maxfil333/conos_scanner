@@ -83,6 +83,8 @@ def main(image: str | np.ndarray):
         pass
     elif isinstance(image, str):
         image = np.array(Image.open(image))
+    elif isinstance(image, Image.Image):
+        image = np.array(image)
 
     angle = get_rotation_angle(image)
     rotated_image = rotate_image(image, angle)
