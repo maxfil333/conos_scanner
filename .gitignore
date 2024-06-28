@@ -3,7 +3,10 @@ __*
 /IN/
 /OUT/
 /CHECK/
-/data/
+crypto.key
+*.
+
+data/
 data_copy/
 
 
@@ -21,6 +24,7 @@ ENV/
 env/
 .venv/
 .env
+encrypted.env
 
 # Игнорировать файлы, скомпилированные Python
 *.pyc
@@ -53,7 +57,6 @@ dist/
 
 # Игнорировать конфигурационные файлы IDE других разработчиков
 .vscode/
-.idea/
 *.code-workspace
 
 # Игнорировать файлы, связанные с контейнерами Docker
