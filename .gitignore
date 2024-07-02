@@ -6,10 +6,6 @@ __*
 crypto.key
 *.
 
-data/
-data_copy/
-
-
 # Игнорировать каталоги и файлы конфигурации PyCharm
 .idea/
 *.iml

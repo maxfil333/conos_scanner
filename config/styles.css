@@ -141,10 +141,13 @@ input[type="checkbox"] {
     margin-right: 0.5em;
 }
 
-#save-button {
+
+
+/* Общие стили для кнопок */
+button {
     background-color: #007bff; /* Синий цвет для кнопки */
     color: white;
-    padding: 8px 16px; /* Уменьшенный отступ */
+    padding: 5px 10px;
     border: none;
     border-radius: 4px;
     cursor: pointer;
@@ -154,27 +157,46 @@ input[type="checkbox"] {
     transition: background-color 0.3s ease;
 }
 
+#save-button {
+    padding: 10px 10px
+}
+
 #save-button:hover {
     background-color: #0056b3; /* Более темный синий при наведении */
 }
 
-
-/* Стили для кнопок */
-input[type="submit"] {
-    background-color: #007bff; /* Синий цвет для кнопки */
-    color: white;
-    padding: 8px 16px; /* Уменьшаем padding */
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    margin-top: 0.5em; /* Уменьшаем верхний отступ */
-    box-sizing: border-box;
-    transition: background-color 0.3s ease;
+/* Стили для кнопки "Добавить услугу" */
+button[onclick="addService(this)"] {
+    font-family: 'Consolas', Courier, monospace;
+    text-align: center;
+    font-size: 18px;
+    background-color: #4CAF50; /* Зеленый фон */
 }
 
-input[type="submit"]:hover {
-    background-color: #0056b3; /* Более темный синий при наведении */
+button[onclick="addService(this)"]:hover {
+    background-color: #367d39; /* Темно-зеленый при наведении */
+}
+
+button[onclick="addService(this)"]:active {
+    background-color: #1f4221; /* Темно-зеленый при нажатии */
+    transform: scale(0.98); /* Легкое уменьшение при нажатии */
+}
+
+/* Стили для кнопки "Удалить услугу" */
+button[onclick="removeService(this)"] {
+    font-family: 'Consolas', Courier, monospace;
+    text-align: center;
+    font-size: 18px;
+    background-color: #f44336; /* Красный фон */
+}
+
+button[onclick="removeService(this)"]:hover {
+    background-color: #c9322e; /* Темно-красный при наведении */
+}
+
+button[onclick="removeService(this)"]:active {
+    background-color: #9e2926; /* Темно-красный при нажатии */
+    transform: scale(0.98); /* Легкое уменьшение при нажатии */
 }
 
 /* Адаптивные стили для мобильных устройств */

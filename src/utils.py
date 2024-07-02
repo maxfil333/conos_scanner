@@ -1,14 +1,19 @@
 import os
-from os import path
 import re
-from glob import glob
+import sys
+import json
+import msvcrt
 import base64
-from io import BytesIO
-from time import perf_counter
+from glob import glob
+from io import BytesIO, StringIO
+from dotenv import load_dotenv
 import PyPDF2
+import datetime
 from PIL import Image, ImageDraw, ImageFont
 from collections import defaultdict
-import datetime
+from cryptography.fernet import Fernet
+
+from config.config import config
 
 
 # _________ ENCODERS _________
@@ -26,6 +31,27 @@ def base64_encode_pil(image: Image.Image):
 
 
 # _________ COMMON _________
+
+def get_stream_dotenv():
+    """ uses crypto.key to decrypt encrypted environment.
+    returns StringIO (for load_dotenv(stream=...)"""
+
+    f = Fernet(config['crypto_key'])
+    try:
+        with open(config['crypto_env'], 'rb') as file:
+            encrypted_data = file.read()
+    except FileNotFoundError:
+        print(f'Файл {config["crypto_env"]} не найден.')
+        if getattr(sys, 'frozen', False):
+            msvcrt.getch()
+            sys.exit()
+        else:
+            raise
+    decrypted_data = f.decrypt(encrypted_data)  # bytes
+    decrypted_data_str = decrypted_data.decode('utf-8')  # string
+    string_stream = StringIO(decrypted_data_str)
+    return string_stream
+
 
 def group_files_by_name(file_list: list[str]) -> dict:
     groups = defaultdict(list)
@@ -52,21 +78,82 @@ def convert_json_values_to_strings(obj):
         return str(obj)
 
 
+def postprocessing_openai_response(response: str, hide_logs=False) -> str:
+    # удаление двойных пробелов и переносов строк
+    re_response = re.sub(r'(\s{2,}|\n)', '', response)
+
+    # проверка на json-формат
+    try:
+        json.loads(re_response)
+        if not hide_logs: print('RECOGNIZED: JSON')
+        return re_response
+    except json.decoder.JSONDecodeError:
+        # поиск ```json (RESPONSE)```
+        json_response = re.findall(r'```\s?json\s?(.*)```', re_response, flags=re.DOTALL | re.IGNORECASE)
+        if json_response:
+            if not hide_logs: print('RECOGNIZED: ``` json... ```')
+            return json_response[0]
+        else:
+            # поиск текста в {}
+            figure_response = re.findall(r'{.*}', re_response, flags=re.DOTALL | re.IGNORECASE)
+            if figure_response:
+                if not hide_logs: print('RECOGNIZED: {...}')
+                return figure_response[0]
+            else:
+                print('NOT RECOGNIZED JSON')
+                return None
+
+
+def replace_symbols_with_latin(match_obj):
+    """ Замена кириллических символов на латиницу """
+
+    text = match_obj.group(0)
+    cyrillic_to_latin = {
+        'А': 'A', 'В': 'B', 'Е': 'E', 'К': 'K', 'М': 'M', 'Н': 'H', 'О': 'O', 'Р': 'P', 'С': 'C', 'Т': 'T', 'У': 'Y',
+        'Х': 'X'
+    }
+    result = ''
+    for char in text:
+        if char in cyrillic_to_latin:
+            result += cyrillic_to_latin[char]
+        else:
+            result += char
+    return result
+
+
+def replace_container_with_latin(text, container_regex):
+    """ Замена в тексте контейнеров на контейнеры латиницей """
+
+    return re.sub(pattern=container_regex,
+                  repl=replace_symbols_with_latin,
+                  string=text)
+
+
 # _________ FOLDERS _________
 
-def rename_files_in_directory(directory_path):
+def rename_files_in_directory(directory_path, hide_logs=False):
     files = os.listdir(directory_path)  # список файлов в указанной папке
 
     for filename in files:
         if not os.path.isdir(os.path.join(directory_path, filename)):  # Исключаем директории из списка файлов
             new_filename = filename.replace(" ", "_")
-            # new_filename = str(next(counter)) + '.jpg'
-
             old_filepath = os.path.join(directory_path, filename)
             new_filepath = os.path.join(directory_path, new_filename)
-            os.rename(old_filepath, new_filepath)
+            try:
+                os.rename(old_filepath, new_filepath)
+            except FileExistsError:
+                c = 1
+                flag = True
+                while flag:
+                    newname = f'{os.path.splitext(new_filepath)[0]}({c}){os.path.splitext(new_filepath)[1]}'
+                    try:
+                        os.rename(old_filepath, newname)
+                        flag = False
+                    except FileExistsError:
+                        c += 1
 
-            print(f"Файл '{filename}' переименован в '{new_filename}'")
+            if not hide_logs:
+                print(f"Файл '{filename}' переименован в '{new_filename}'")
 
 
 def delete_all_files(directory):
@@ -206,13 +293,5 @@ def clear_pdf_waste_pages(pdf_path):
 
 
 if __name__ == '__main__':
-    file = os.path.join('..', 'data', 'ATSE23TAO507.pdf')
-    out_file = os.path.join('..', '__out' + os.path.basename(file))
-
-    cleared = clear_pdf_waste_pages(file)
-    with open(out_file, "wb") as fp:
-        cleared.write(fp)
-
-    for file in glob(r'C:\Users\Filipp\PycharmProjects\Conos_scanner\data\*.pdf'):
-        if count_pages(file) in [3]:
-            print(file)
+    load_dotenv(stream=get_stream_dotenv())
+    print(os.getenv('OPENAI_API_KEY'))

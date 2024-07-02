@@ -1,22 +1,24 @@
-from config.config import config
-from glob import glob
-from natsort import os_sorted
 import os
 import shutil
+import subprocess
 import numpy as np
-from pdf2image import convert_from_path
+from glob import glob
 from PIL import Image
+from itertools import count
+from natsort import os_sorted
+from pdf2image import convert_from_path
 
+from config.config import config
 from rotator import main as rotate
-from utils import is_scanned_pdf, count_pages, clear_pdf_waste_pages
 from utils import rename_files_in_directory
 from crop_tables import get_table_coords, crop_goods_table
+from utils import is_scanned_pdf, count_pages, clear_pdf_waste_pages
 
 
-def main():
+def main(hide_logs=False, stop_when=-1):
     """ take all files in IN_FOLDER, preprocess, extract additional and save to IN_FOLDER_EDIT"""
 
-    rename_files_in_directory(config['IN_FOLDER'])
+    rename_files_in_directory(config['IN_FOLDER'], hide_logs=hide_logs)
 
     # collect files
     files, extensions = [], ['.pdf', '.jpeg', '.jpg', '.png']
@@ -24,6 +26,7 @@ def main():
         files.extend(glob(os.path.join(config['IN_FOLDER'], f'*{ext}')))
 
     # preprocess and copy to "edited"
+    c = count(1)
     for file in os_sorted(files):
         file_type = os.path.splitext(file)[1]
         file_name = os.path.basename(file).rsplit('.', 1)[0]
@@ -65,7 +68,11 @@ def main():
                 prefix = 'zoom'
 
             for i, image in enumerate(images):
-                rotated = Image.fromarray(rotate(image))
+                if prefix == 'zoom':  # rotate уже выполнено
+                    rotated = image
+                else:
+                    rotated = Image.fromarray(rotate(image))
+
                 if i == 0:  # оригинальный файл или первая страница записывается без префиксов
                     save_path = os.path.join(config['IN_FOLDER_EDIT'],
                                              file_name + f'_{file_type.replace(".", "")}' + '.jpg')
@@ -76,16 +83,19 @@ def main():
                     rotated = rotated.convert('RGB')
                 rotated.save(save_path, quality=100)
 
-                command = f'magick convert {save_path} {config["magick_opt"]} {save_path}'
-                os.system(command)
+                command = [config["magick_exe"], "convert", save_path, *config["magick_opt"], save_path]
+                subprocess.run(command)
                 print(save_path)
+
+        # _____  STOP ITERATION  _____
+        if stop_when > 0:
+            stop = next(c)
+            if stop == stop_when:
+                break
 
     print(f"\nФайлы сохранены в {config['IN_FOLDER_EDIT']}\n")
 
 
 if __name__ == '__main__':
     main()
-    # z = os.path.join(os.path.dirname(__file__), '..', 'data', '620.jpg')
-    # z = r'C:\Users\Filipp\PycharmProjects\Invoice_scanner\IN\edited\620.jpg'
-    # print(os.path.splitext(z)[0]+'_tab')
-    # print(os.path.split(z))
+

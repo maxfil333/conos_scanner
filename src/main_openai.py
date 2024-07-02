@@ -2,22 +2,56 @@ import openai
 from openai import OpenAI
 
 import os
-from dotenv import load_dotenv
-from time import perf_counter
 import re
 import json
+import inspect
 from PIL import Image
+from time import perf_counter
+from dotenv import load_dotenv
 
 from config.config import config
-from utils import base64_encode_pil, convert_json_values_to_strings
+from utils import replace_container_with_latin
+from utils import base64_encode_pil, convert_json_values_to_strings, get_stream_dotenv, postprocessing_openai_response
+
+# ___________________________ general ___________________________
+
+start = perf_counter()
+load_dotenv(stream=get_stream_dotenv())
+openai.api_key = os.environ.get("OPENAI_API_KEY")
+ASSISTANT_ID = os.environ.get("ASSISTANT_ID")
+client = OpenAI()
+
+
+def local_postprocessing(response, hide_logs=False):
+    re_response = postprocessing_openai_response(response, hide_logs)
+    if re_response is None:
+        return None
+    if not hide_logs:
+        print(f'function "{inspect.stack()[1].function}":')
+        print('response:')
+        print(repr(response))
+        print('re_response:')
+        print(repr(re_response))
+    dct = json.loads(re_response)
+    dct = convert_json_values_to_strings(dct)
+
+    # Найти все контейнеры по паттерну вне зависимости от языка
+    container_regex = r'[A-ZА-Я]{4}\s?[0-9]{7}'
+    container_regex_lt = r'[A-Z]{4}\s?[0-9]{7}'
+
+    for good_dct in dct['goods']:
+        # 1. Замена кириллицы в контейнерах
+        name = good_dct['container number']
+        # Заменить в Наименовании кириллицу в контейнерах
+        good_dct['container number'] = replace_container_with_latin(name, container_regex)
+
+    string_dictionary = convert_json_values_to_strings(dct)
+    return json.dumps(string_dictionary, ensure_ascii=False, indent=4)
 
 
 # ___________________________ CHAT ___________________________
 
-def run_chat(*img_paths: str, detail='high', show_logs=False) -> str:
-    load_dotenv()
-    openai.api_key = os.environ.get("OPENAI_API_KEY")
-
+def run_chat(*img_paths: str, detail='high', hide_logs=False) -> str:
     content = []
     for img_path in img_paths:
         d = {
@@ -27,16 +61,16 @@ def run_chat(*img_paths: str, detail='high', show_logs=False) -> str:
         }
         content.append(d)
 
-    start = perf_counter()
-    client = OpenAI()
     response = client.chat.completions.create(
         model="gpt-4o",
+        response_format={"type": "json_object"},
+        temperature=0.1,
         messages=
         [
             {"role": "system", "content": config['system_prompt']},
             {"role": "user", "content": content}
         ],
-        max_tokens=2000,
+        max_tokens=3000,
     )
     print(f'img_paths: {img_paths}')
     print(f'time: {perf_counter() - start:.2f}')
@@ -46,38 +80,13 @@ def run_chat(*img_paths: str, detail='high', show_logs=False) -> str:
 
     response = response.choices[0].message.content
 
-    re_response = re.sub(r'(\s{2,}|```|\n)', '', response)
-    if re_response[0:4] == 'json':
-        re_response = re_response[4:]
-
-    if show_logs:
-        print('run_chat response:')
-        print(repr(response))
-        print('run_chat re_response:')
-        print(repr(re_response))
-
-    dictionary = json.loads(re_response)
-
-    # container_regex = r'[A-Z]{4}\s?[0-9]{7}'
-    # for item in dictionary['Услуги']:
-    #     name = item['Наименование']
-    #     item['Номера контейнеров'] = ' '.join(list(map(lambda x:
-    #                                                    re.sub(r'\s', '', x), re.findall(container_regex, name))))
-    string_dictionary = convert_json_values_to_strings(dictionary)
-    return json.dumps(string_dictionary, ensure_ascii=False, indent=4)
+    return local_postprocessing(response, hide_logs=hide_logs)
 
 
 # ___________________________ ASSISTANT ___________________________
 
-def run_assistant(file_path, show_logs=False):
-    load_dotenv()
-    openai.api_key = os.environ.get("OPENAI_API_KEY")
-    ASSISTANT_ID = os.environ.get("ASSISTANT_ID")
-
-    start = perf_counter()
-    client = OpenAI()
+def run_assistant(file_path, hide_logs=False):
     assistant = client.beta.assistants.retrieve(assistant_id=ASSISTANT_ID)
-
     message_file = client.files.create(file=open(file_path, "rb"), purpose="assistants")
     # Create a thread and attach the file to the message
     thread = client.beta.threads.create(
@@ -94,6 +103,7 @@ def run_assistant(file_path, show_logs=False):
         thread_id=thread.id, assistant_id=assistant.id
     )
     if run.status == 'completed':
+        print('assistant model:', assistant.model)
         print(f'file_path: {file_path}')
         print(f'time: {perf_counter() - start:.2f}')
         print(f'completion_tokens: {run.usage.completion_tokens}')
@@ -102,43 +112,8 @@ def run_assistant(file_path, show_logs=False):
 
     messages = list(client.beta.threads.messages.list(thread_id=thread.id, run_id=run.id))
     response = messages[0].content[0].text.value
-
-    re_response = re.sub(r'(\s{2,}|```|\n)', '', response)
-    if re_response[0:4] == 'json':
-        re_response = re_response[4:]
-
-    if show_logs:
-        print('run_chat response:')
-        print(repr(response))
-        print('run_chat re_response:')
-        print(repr(re_response))
-
-    dictionary = json.loads(re_response)
-
-    # container_regex = r'[A-Z]{4}\s?[0-9]{7}'
-    # for item in dictionary['Услуги']:
-    #     name = item['Наименование']
-    #     item['Номера контейнеров'] = ' '.join(list(map(lambda x:
-    #                                                    re.sub(r'\s', '', x), re.findall(container_regex, name))))
-
-    string_dictionary = convert_json_values_to_strings(dictionary)
-    return json.dumps(string_dictionary, ensure_ascii=False, indent=4)
+    return local_postprocessing(response, hide_logs=hide_logs)
 
 
 if __name__ == '__main__':
-    file_path = os.path.join('..', 'IN/221.jpg')
-    result = run_chat(file_path,
-                      os.path.join('..', 'IN/222.jpg'),
-                      # os.path.join('..', 'IN/edited/458.jpg'),
-                      detail='high', show_logs=False)
-    #
-    # result = run_assistant(os.path.join(file_path),
-    #                        show_logs=True)
-
-    print('#' * 50)
-    print(result)
-    print('#' * 50)
-
-    json_path = os.path.join("..", "OUT", os.path.splitext(os.path.basename(file_path))[0] + ".json")
-    with open(json_path, 'w', encoding='utf-8') as file:
-        file.write(result)
+    pass

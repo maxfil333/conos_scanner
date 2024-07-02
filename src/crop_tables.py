@@ -1,12 +1,12 @@
 import os
-from PIL import Image
-from img2table.document import Image as IMAGE
+import re
 import pytesseract
-from pytesseract import Output
 import numpy as np
 import pandas as pd
-import re
+from PIL import Image
 from time import perf_counter
+from pytesseract import Output
+from img2table.document import Image as IMAGE
 
 from preprocessor import main as main_preprocessor
 
@@ -49,7 +49,7 @@ def crop_goods_table(image: Image.Image, coords):
 
     img_w, img_h = image.width, image.height
     x1, x2 = 0, img_w
-    y1, y2 = coords['min_top'], img_h
+    y1, y2 = coords['min_top'], img_h * 0.75
     return image.crop((x1, y1, x2, y2))
 
 

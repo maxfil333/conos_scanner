@@ -24,12 +24,5 @@ def convert_pdfs(pdf_paths, output_folder, first_page=0, last_page=1, dpi=350, f
 
 
 if __name__ == '__main__':
-    # print(result_pdf_files)
-    # convert_pdfs(result_pdf_files, r'output')
-    # convert_pdfs(pdf_paths= ['777.pdf'],output_folder= '.',  first_page=0 ,last_page=1, fmt='PNG')
-    file_path = r'C:\Users\Filipp\PycharmProjects\Conos_scanner\IN\AKKNVS23075952.pdf'
-    out_path = os.path.join("..", "OUT", os.path.splitext(os.path.basename(file_path))[0] + ".jpg")
-    image = convert_from_path(file_path, output_folder=r'../OUT', output_file='9', first_page=0, last_page=3,
-                              fmt='jpeg', poppler_path=POPPLER_PATH, jpegopt={"quality":100})
-    # convert_pdfs(['PCSLSYF601240207.pdf'], '.')
-    # convert_pdfs(glob('new_pdfs/*.pdf'), 'new_raw_images')
+    result = [r'C:\Users\Filipp\PycharmProjects\Conos_scanner\IN\0+.PDF']
+    convert_pdfs(result, r'C:\Users\Filipp\PycharmProjects\Conos_scanner\IN')
