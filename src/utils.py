@@ -4,6 +4,8 @@ import sys
 import json
 import msvcrt
 import base64
+import openai
+from openai import OpenAI
 from glob import glob
 from io import BytesIO, StringIO
 from dotenv import load_dotenv
@@ -32,26 +34,6 @@ def base64_encode_pil(image: Image.Image):
 
 # _________ COMMON _________
 
-def get_stream_dotenv():
-    """ uses crypto.key to decrypt encrypted environment.
-    returns StringIO (for load_dotenv(stream=...)"""
-
-    f = Fernet(config['crypto_key'])
-    try:
-        with open(config['crypto_env'], 'rb') as file:
-            encrypted_data = file.read()
-    except FileNotFoundError:
-        print(f'Файл {config["crypto_env"]} не найден.')
-        if getattr(sys, 'frozen', False):
-            msvcrt.getch()
-            sys.exit()
-        else:
-            raise
-    decrypted_data = f.decrypt(encrypted_data)  # bytes
-    decrypted_data_str = decrypted_data.decode('utf-8')  # string
-    string_stream = StringIO(decrypted_data_str)
-    return string_stream
-
 
 def group_files_by_name(file_list: list[str]) -> dict:
     groups = defaultdict(list)
@@ -76,6 +58,27 @@ def convert_json_values_to_strings(obj):
         return ""
     else:
         return str(obj)
+
+
+def get_stream_dotenv():
+    """ uses crypto.key to decrypt encrypted environment.
+    returns StringIO (for load_dotenv(stream=...)"""
+
+    f = Fernet(config['crypto_key'])
+    try:
+        with open(config['crypto_env'], 'rb') as file:
+            encrypted_data = file.read()
+    except FileNotFoundError:
+        print(f'Файл {config["crypto_env"]} не найден.')
+        if getattr(sys, 'frozen', False):
+            msvcrt.getch()
+            sys.exit()
+        else:
+            raise
+    decrypted_data = f.decrypt(encrypted_data)  # bytes
+    decrypted_data_str = decrypted_data.decode('utf-8')  # string
+    string_stream = StringIO(decrypted_data_str)
+    return string_stream
 
 
 def postprocessing_openai_response(response: str, hide_logs=False) -> str:
@@ -182,7 +185,7 @@ def create_date_folder_in_check(root_dir):
     return folder_path
 
 
-# _________ IMAGE _________
+# _________ IMAGES _________
 
 def add_text_bar(image: str | Image.Image, text, h=75, font_path='verdana.ttf', font_size=50):
     # Открыть изображение
@@ -292,6 +295,32 @@ def clear_pdf_waste_pages(pdf_path):
     return get_pdf_writer_with_selected_pages(pdf_path, pages=normal_pages)
 
 
-if __name__ == '__main__':
+# _________ OPENAI _________
+
+def update_assistant(client, assistant_id: str, model: int):
+    if model == 3:
+        model = 'gpt-3.5-turbo'
+    if model == 4:
+        model = 'gpt-4o'
+
+    my_updated_assistant = client.beta.assistants.update(
+        assistant_id,
+        model=model
+    )
+    return my_updated_assistant
+
+
+def update_assistant_system_prompt(new_prompt: str):
     load_dotenv(stream=get_stream_dotenv())
-    print(os.getenv('OPENAI_API_KEY'))
+    openai.api_key = os.environ.get("OPENAI_API_KEY")
+    ASSISTANT_ID = os.environ.get("ASSISTANT_ID")
+    client = OpenAI()
+    client.beta.assistants.update(
+        ASSISTANT_ID,
+        instructions=new_prompt
+    )
+
+
+if __name__ == '__main__':
+    pass
+    # update_assistant_system_prompt(config['system_prompt'])
