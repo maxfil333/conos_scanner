@@ -1,17 +1,16 @@
 import openai
 from openai import OpenAI
+from openai.types.chat import ChatCompletion, ParsedChatCompletion
 
 import os
-import re
-import json
-import inspect
 from PIL import Image
 from time import perf_counter
 from dotenv import load_dotenv
 
-from config.config import config
-from utils import replace_container_with_latin
-from utils import base64_encode_pil, convert_json_values_to_strings, get_stream_dotenv, postprocessing_openai_response
+from src.logger import logger
+from config.config import config, running_params
+from src.utils import extract_text_with_fitz, base64_encode_pil
+from src.utils_config import get_stream_dotenv
 
 # ___________________________ general ___________________________
 
@@ -22,70 +21,94 @@ ASSISTANT_ID = os.environ.get("ASSISTANT_ID")
 client = OpenAI()
 
 
-def local_postprocessing(response, hide_logs=False):
-    re_response = postprocessing_openai_response(response, hide_logs)
-    if re_response is None:
-        return None
-    if not hide_logs:
-        print(f'function "{inspect.stack()[1].function}":')
-        print('response:')
-        print(repr(response))
-        print('re_response:')
-        print(repr(re_response))
-    dct = json.loads(re_response)
-    dct = convert_json_values_to_strings(dct)
-
-    # Найти все контейнеры по паттерну вне зависимости от языка
-    container_regex = r'[A-ZА-Я]{4}\s?[0-9]{7}'
-    container_regex_lt = r'[A-Z]{4}\s?[0-9]{7}'
-
-    for good_dct in dct['goods']:
-        # 1. Замена кириллицы в контейнерах
-        name = good_dct['container number']
-        # Заменить в Наименовании кириллицу в контейнерах
-        good_dct['container number'] = replace_container_with_latin(name, container_regex)
-
-    string_dictionary = convert_json_values_to_strings(dct)
-    return json.dumps(string_dictionary, ensure_ascii=False, indent=4)
+def log_response(response: ChatCompletion | ParsedChatCompletion, time_start: float) -> None:
+    logger.print('chat model:', response.model)
+    logger.print(f'completion_tokens: {response.usage.completion_tokens}')
+    logger.print(f'cached_tokens: {response.usage.prompt_tokens_details}')
+    logger.print(f'prompt_tokens: {response.usage.prompt_tokens}')
+    logger.print(f'total_tokens: {response.usage.total_tokens}')
+    logger.print(f'time: {perf_counter() - time_start:.2f}')
 
 
-# ___________________________ CHAT ___________________________
+# ___________________________ CHAT (json_schema) ___________________________
 
-def run_chat(*img_paths: str, detail='high', hide_logs=False) -> str:
-    content = []
-    for img_path in img_paths:
-        d = {
-            "type": "image_url",
-            "image_url": {"url": f"data:image/jpeg;base64,{base64_encode_pil(Image.open(img_path))}",
-                          "detail": detail}
-        }
-        content.append(d)
+def run_chat(*file_paths: str,
+             response_format,
+             prompt=config['system_prompt'],
+             model=config['GPTMODEL'],
+             text_content: list | None = None
+             ) -> str:
+
+    if text_content:
+        content = '\n'.join(text_content)
+    else:
+        content = []
+        for img_path in file_paths:
+            d = {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{base64_encode_pil(Image.open(img_path))}",
+                              "detail": "high"}
+            }
+            content.append(d)
 
     response = client.chat.completions.create(
-        model="gpt-4o",
-        response_format={"type": "json_object"},
+        model=model,
         temperature=0.1,
-        messages=
-        [
-            {"role": "system", "content": config['system_prompt']},
+        messages=[
+            {"role": "system", "content": prompt},
             {"role": "user", "content": content}
         ],
         max_tokens=3000,
+        response_format=response_format,
     )
-    print(f'img_paths: {img_paths}')
-    print(f'time: {perf_counter() - start:.2f}')
-    print(f'completion_tokens: {response.usage.completion_tokens}')
-    print(f'prompt_tokens: {response.usage.prompt_tokens}')
-    print(f'total_tokens: {response.usage.total_tokens}')
+
+    log_response(response=response, time_start=start)
 
     response = response.choices[0].message.content
+    return response
 
-    return local_postprocessing(response, hide_logs=hide_logs)
+
+def run_chat_pydantic(*file_paths: str,
+                      response_format_pydantic,
+                      prompt=config['system_prompt'],
+                      model=config['GPTMODEL'],
+                      text_content: list | None = None,
+                      ) -> str:
+
+    if text_content:
+        content = '\n'.join(text_content)
+    else:
+        content = []
+        for img_path in file_paths:
+            d = {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{base64_encode_pil(Image.open(img_path))}",
+                              "detail": "high"}
+            }
+            content.append(d)
+
+    response = client.beta.chat.completions.parse(
+        model=model,
+        temperature=0.1,
+        messages=[
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": content}
+        ],
+        max_tokens=3000,
+        response_format=response_format_pydantic,
+    )
+
+    log_response(response=response, time_start=start)
+
+    response = response.choices[0].message.content
+    return response
 
 
 # ___________________________ ASSISTANT ___________________________
 
-def run_assistant(file_path, hide_logs=False):
+def run_assistant(file_path):
+    running_params['current_texts'] = extract_text_with_fitz(file_path)
+
     assistant = client.beta.assistants.retrieve(assistant_id=ASSISTANT_ID)
     message_file = client.files.create(file=open(file_path, "rb"), purpose="assistants")
     # Create a thread and attach the file to the message
@@ -103,17 +126,19 @@ def run_assistant(file_path, hide_logs=False):
         thread_id=thread.id, assistant_id=assistant.id
     )
     if run.status == 'completed':
-        print('assistant model:', assistant.model)
-        print(f'file_path: {file_path}')
-        print(f'time: {perf_counter() - start:.2f}')
-        print(f'completion_tokens: {run.usage.completion_tokens}')
-        print(f'prompt_tokens: {run.usage.prompt_tokens}')
-        print(f'total_tokens: {run.usage.total_tokens}')
+        logger.print('assistant model:', assistant.model)
+        logger.print(f'file_path: {file_path}')
+        logger.print(f'time: {perf_counter() - start:.2f}')
+        logger.print(f'completion_tokens: {run.usage.completion_tokens}')
+        logger.print(f'prompt_tokens: {run.usage.prompt_tokens}')
+        logger.print(f'total_tokens: {run.usage.total_tokens}')
 
     messages = list(client.beta.threads.messages.list(thread_id=thread.id, run_id=run.id))
     response = messages[0].content[0].text.value
-    return local_postprocessing(response, hide_logs=hide_logs)
+    return response
 
+
+# ___________________________ TEST ___________________________
 
 if __name__ == '__main__':
     pass

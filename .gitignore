@@ -1,10 +1,11 @@
 __*/
 __*
 /IN/
-/OUT/
+/EDITED/
 /CHECK/
+/examples/
 crypto.key
-*.
+*.json
 
 # Игнорировать каталоги и файлы конфигурации PyCharm
 .idea/

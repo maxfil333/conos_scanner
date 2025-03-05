@@ -3,7 +3,7 @@ import json
 from html import escape
 from bs4 import BeautifulSoup as bs
 
-from config.config import config
+from config.config import config, NAMES
 
 
 def generate_input_html(key, value):
@@ -96,7 +96,7 @@ def create_html_form(json_file, output_file, file_path):
         <script src="{config['JS_PATH']}"></script>
         <div jsonfilename="{os.path.basename(json_file)}" id="jsonfilenameid"></div>
         <div id="jsonfiledataid" hidden>{json.dumps(data, ensure_ascii=False)}</div>
-        <div id="jsononegoodid" hidden>{data['goods'][0]}</div>
+        <div id="jsononegoodid" hidden>{data[NAMES.goods][0]}</div>
     </body>
     </html>
     '''
