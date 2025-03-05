@@ -1,21 +1,29 @@
 import os
 import re
+import sys
 import pytesseract
 import numpy as np
 import pandas as pd
 from PIL import Image
-from time import perf_counter
 from pytesseract import Output
-from img2table.document import Image as IMAGE
 
-from preprocessor import main as main_preprocessor
+
+def extract_text_from_image(image: np.ndarray, psm=3):
+    if getattr(sys, 'frozen', False):
+        bundle_dir = sys._MEIPASS
+        pytesseract.pytesseract.tesseract_cmd = os.path.join(bundle_dir, 'Tesseract-OCR', 'tesseract.exe')
+
+    config = f'--psm {psm}'  # --psm 4 --oem 3
+    text = pytesseract.image_to_string(image, config=config, lang='rus+eng')
+    return text
+
 
 rgx = (r"((?:place|port) of (?:loading|discharge|receipt|delivery))|((?:description of goods)|(?:cargo description)|"
        r"(?:description of cargo))|"
        r"(particulars (?:declared|furnished) by (?:the)? shipper)")
 
 
-def get_table_coords(image: str | Image.Image, regex: str = rgx) -> dict:
+def get_table_coords(image: str | Image.Image, regex: str = rgx) -> dict | None:
     def get_text_and_coords(group):
         text = " ".join(group['text'])
         min_left = group['left'].min()
@@ -49,9 +57,5 @@ def crop_goods_table(image: Image.Image, coords):
 
     img_w, img_h = image.width, image.height
     x1, x2 = 0, img_w
-    y1, y2 = coords['min_top'], img_h * 0.75
+    y1, y2 = coords['min_top'], img_h
     return image.crop((x1, y1, x2, y2))
-
-
-if __name__ == '__main__':
-    pass

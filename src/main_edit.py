@@ -11,6 +11,7 @@ from itertools import count
 from pdf2image import convert_from_path
 
 from config.config import config
+from src.crop_tables import get_table_coords, crop_goods_table
 from src.logger import logger
 from src.utils import delete_all_files, rename_files_in_directory, filtering_and_foldering_files
 from src.utils import is_scanned_pdf, count_pages, clear_pdf_waste_pages, image_upstanding_and_rotate
@@ -83,10 +84,20 @@ def main(dir_path: str = config['IN_FOLDER'], hide_logs=False, stop_when=-1):
                     logger.print(f'main edit. ERROR IN: {main_file}')
                     continue
 
+                # добавляем зумированное изображение в случае одностраничного документа
+                postfix = ''
+                if len(images) == 1:
+                    image = images[0]
+                    rotated = image_upstanding_and_rotate(image)
+                    table_coords = get_table_coords(rotated)
+                    cropped = crop_goods_table(rotated, table_coords)
+                    images = [rotated, cropped]
+                    postfix = '_zoom'
+
                 for i, image in enumerate(images):
                     rotated = image_upstanding_and_rotate(image)
                     name, ext = os.path.splitext(main_save_path)
-                    idx_save_path = f'{name}({i}).jpg'
+                    idx_save_path = f'{name}({i}){postfix}.jpg'
                     rotated.save(idx_save_path, quality=100)
                     main_local_files.append(idx_save_path)
 
