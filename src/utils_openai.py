@@ -1,6 +1,6 @@
 from config.config import config
 from src.utils import extract_text_with_fitz, extract_excel_text
-from src.main_openai import run_chat, run_assistant
+from src.main_openai import run_chat_pydantic, run_assistant
 
 
 def pdf_to_ai(file: str, test_mode: bool, text_to_assistant: bool, config: dict, running_params: dict,
@@ -14,7 +14,7 @@ def pdf_to_ai(file: str, test_mode: bool, text_to_assistant: bool, config: dict,
         with open(config['TESTFILE'], 'r', encoding='utf-8') as f:
             return f.read()
     if not text_to_assistant:
-        result = run_chat(file,
+        result = run_chat_pydantic(file,
                           response_format=response_format, text_content=running_params['current_texts'])
         return result
     else:
@@ -29,7 +29,7 @@ def excel_to_ai(file: str, test_mode: bool, text_to_assistant: bool, config: dic
     if test_mode:
         with open(config['TESTFILE'], 'r', encoding='utf-8') as f:
             return f.read()
-    result = run_chat('',
+    result = run_chat_pydantic('',
                       response_format=config['response_format'], text_content=running_params['current_texts'])
     return result
 
@@ -40,6 +40,6 @@ def images_to_ai(files: list, test_mode: bool, text_to_assistant: bool, config: 
     if test_mode:
         with open(config['TESTFILE'], 'r', encoding='utf-8') as f:
             return f.read()
-    result = run_chat(*files,
+    result = run_chat_pydantic(*files,
                       response_format=config['response_format'], text_content=None)
     return result

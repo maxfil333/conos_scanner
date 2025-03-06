@@ -1,3 +1,5 @@
+import json
+
 import openai
 from openai import OpenAI
 from openai.types.chat import ChatCompletion, ParsedChatCompletion
@@ -32,44 +34,44 @@ def log_response(response: ChatCompletion | ParsedChatCompletion, time_start: fl
 
 # ___________________________ CHAT (json_schema) ___________________________
 
-def run_chat(*file_paths: str,
-             response_format,
-             prompt=config['system_prompt'],
-             model=config['GPTMODEL'],
-             text_content: list | None = None
-             ) -> str:
-
-    if text_content:
-        content = '\n'.join(text_content)
-    else:
-        content = []
-        for img_path in file_paths:
-            d = {
-                "type": "image_url",
-                "image_url": {"url": f"data:image/jpeg;base64,{base64_encode_pil(Image.open(img_path))}",
-                              "detail": "high"}
-            }
-            content.append(d)
-
-    response = client.chat.completions.create(
-        model=model,
-        temperature=0.1,
-        messages=[
-            {"role": "system", "content": prompt},
-            {"role": "user", "content": content}
-        ],
-        max_tokens=3000,
-        response_format=response_format,
-    )
-
-    log_response(response=response, time_start=start)
-
-    response = response.choices[0].message.content
-    return response
+# def run_chat(*file_paths: str,
+#              response_format,
+#              prompt=config['system_prompt'],
+#              model=config['GPTMODEL'],
+#              text_content: list | None = None
+#              ) -> str:
+#
+#     if text_content:
+#         content = '\n'.join(text_content)
+#     else:
+#         content = []
+#         for img_path in file_paths:
+#             d = {
+#                 "type": "image_url",
+#                 "image_url": {"url": f"data:image/jpeg;base64,{base64_encode_pil(Image.open(img_path))}",
+#                               "detail": "high"}
+#             }
+#             content.append(d)
+#
+#     response = client.chat.completions.create(
+#         model=model,
+#         temperature=0.1,
+#         messages=[
+#             {"role": "system", "content": prompt},
+#             {"role": "user", "content": content}
+#         ],
+#         max_tokens=3000,
+#         response_format=response_format,
+#     )
+#
+#     log_response(response=response, time_start=start)
+#
+#     response = response.choices[0].message.content
+#     return response
 
 
 def run_chat_pydantic(*file_paths: str,
-                      response_format_pydantic,
+                      response_format,
                       prompt=config['system_prompt'],
                       model=config['GPTMODEL'],
                       text_content: list | None = None,
@@ -95,7 +97,7 @@ def run_chat_pydantic(*file_paths: str,
             {"role": "user", "content": content}
         ],
         max_tokens=3000,
-        response_format=response_format_pydantic,
+        response_format=response_format,
     )
 
     log_response(response=response, time_start=start)
