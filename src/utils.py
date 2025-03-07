@@ -386,7 +386,7 @@ def is_scanned_pdf(file_path, pages_to_analyse=None) -> Optional[bool]:
             for page_num in pages:
                 page = reader.pages[page_num]
                 text = page.extract_text()
-                if text.strip() and len(text.strip()) > 30:
+                if text.strip() and len(text.strip()) > 100:
                     digit_list.append(page_num)  # Если текст найден
                 else:
                     scan_list.append(page_num)  # Если текст не найден
@@ -628,3 +628,4 @@ def mark_get_main_file(dir_path: str) -> str | None:
 if __name__ == '__main__':
     pass
     # update_assistant_system_prompt(config['system_prompt'])
+

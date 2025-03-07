@@ -12,7 +12,7 @@ from natsort import os_sorted
 from openai import PermissionDeniedError
 
 from config.config import config, running_params, NAMES
-from src.logger import logger
+from logger import logger
 from src.main_edit import main as main_edit
 from src.utils_openai import pdf_to_ai, excel_to_ai, images_to_ai
 from src.generate_html import create_html_form

@@ -2,10 +2,12 @@ import os
 import sys
 import json
 import msvcrt
+from dotenv import load_dotenv
 
 from src.logger import logger
 from config.pydantic_schema import PydanticSchema
 
+load_dotenv("../config/paths.env")
 
 config: dict = dict()
 running_params: dict = dict()
@@ -20,7 +22,7 @@ if getattr(sys, 'frozen', False):  # в сборке
     config['magick_exe'] = os.path.join(sys._MEIPASS, 'magick', 'magick.exe')
 else:
     config['BASE_DIR'] = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    config['POPPLER_PATH'] = r'C:\Program Files\poppler-24.08.0\Library\bin'
+    config['POPPLER_PATH'] = os.getenv("POPPLER_PATH")
     config['magick_exe'] = 'magick'  # или полный путь до ...magick.exe файла, если не добавлено в Path
 
 config['CONFIG'] = os.path.join(config['BASE_DIR'], 'config')
@@ -77,18 +79,8 @@ NAMES = ConfigNames()
 config['valid_ext'] = ['.pdf', '.jpg', '.jpeg', '.png']
 config['excel_ext'] = ['.xls', '.xltx', '.xlsx']
 
-
 config['response_format'] = PydanticSchema
-config['system_prompt'] = f"""
-You are an AI specialized in extracting Bill of Lading (BL) data.
-""".strip()
-
-# config['system_prompt'] = f"""
-# Извлеки данные из коносамента.
-# Если какой-то из параметров не найден, впиши значение ''.
-# """.strip()
-# # TODO: "few-shot" prompting for extracting seals "BMOU1234567/20DC/VT171687"
-
+config['system_prompt'] = f"You are an AI specialized in extracting Bill of Lading (BL) data."
 
 logger.print("CONFIG INFO:")
 logger.print('sys.frozen:', getattr(sys, 'frozen', False))

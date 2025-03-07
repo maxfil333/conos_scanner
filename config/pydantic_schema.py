@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from enum import Enum
 
 class ContainerNameEnum(str, Enum):
+    """Типы контейнеров"""
     dc = "DC" # Dry Container
     nc = "HC" # "High Cubes"
     ot = "OT" # "Open Top"
@@ -20,6 +21,7 @@ class ContainerNameEnum(str, Enum):
 
 
 class ContainersSchema(BaseModel):
+    """Извлечение информации о контейнерах."""
     container: str = Field(description=(
         "Unique container number following ISO 6346 format. "
         "It consists of 4 letters (owner code + 'U') followed by 7 digits (e.g., 'MSKU1234567'). "
@@ -27,11 +29,13 @@ class ContainersSchema(BaseModel):
         "Container numbers often appear in sections labeled 'Container No.', 'CNTR NO.', 'Container Number', or within 'Marks & Nos.'. "
         "In cases where the container number appears in a structured format such as 'SIZE/CONTAINER/SEAL/OTHER_DATA', extract only the container number."
     ))
-    container_goods: str | None = Field(description=(
-        "Description of the goods inside the container. "
-        "This information is often found in sections labeled 'Description of Goods', 'Cargo Description', or 'Goods'. "
-        "It may include product names, material types, or HS codes (Harmonized System). "
-        "If multiple products are listed, return all of them."
+    container_goods: str = Field(description=(
+        "Detailed description of the goods inside the container. "
+        "This information is commonly found under sections labeled 'Description of Goods', 'Cargo Description', or 'Goods'. "
+        "It may include product names, material types, HS codes (Harmonized System), and packaging details. "
+        "Exclude any references to container size, type, or format (e.g., '1X40' HC', 'FCL', 'STC'). "
+        "Extract only the actual cargo details. "
+        "If multiple products are listed, return all relevant items."
     ))
     seals: list[str] = Field(description=(
         "Seal numbers (SEALS) used to secure the container. "
@@ -43,7 +47,7 @@ class ContainersSchema(BaseModel):
         "If multiple seals exist, return all of them in the order they appear."
     ))
     size: int = Field(description=(
-        "Container size in feet, typically 20, 40, or 45."
+        "Container size in feet, typically 20, 40, or 45. "
         "If found in a structured format like 'SIZE_TYPE/CONTAINER/SEAL/OTHER_DATA', extract only the numerical size value."
     ))
     type: ContainerNameEnum = Field(description=(
@@ -65,21 +69,70 @@ class ContainersSchema(BaseModel):
     ))
 
 
+class BaseCompanySchema(BaseModel):
+    """
+    Базовая схема для извлечения информации о компаниях.
+    Используется для 'Shipper', 'Consignee', 'Notify Party'.
+    Содержит название компании и страну регистрации.
+    """
+    company_name: str = Field(description=(
+        "Full legal name of the company. "
+        # "Typically found under sections labeled 'Shipper', 'Exporter', 'Consignee', 'Receiver', or 'Notify Party'. "
+        "Extract the complete and accurate name."
+    ))
+    country: str = Field(description=(
+        "Country where the company is registered. "
+        "Extract only the country name, ignoring full addresses."
+    ))
+
+
+class CompanyWithNumbersSchema(BaseCompanySchema):
+    """
+    Расширенная схема для получения дополнительной инфоримации о компаниях (ИНН, КПП).
+    Используется для 'Consignee' и 'Notify Party'.
+    """
+    inn: int | None = Field(description=(
+        "Taxpayer Identification Number (ИНН) of the company, if available. "
+        "Extract strictly as a 10- or 12-digit numeric value."
+    ))
+    kpp: int | None = Field(description=(
+        "Tax Registration Reason Code (КПП) of the company, if available. "
+        "Extract strictly as a 9-digit numeric value."
+    ))
+
+
 class PydanticSchema(BaseModel):
+    """
+    Основная схема для извлечения необходимой информации из Bill of Lading.
+    """
     model_config = ConfigDict(extra="forbid")  # Запрещает дополнительные поля
 
-    bill_of_lading: str = Field(description="Unique Bill of Lading (B/L) number assigned to the shipment.")
-    shipper: str | None = Field(description="Shipper company name with address")
-    consignee: str | None = Field(description="Consignee Company name with address")
-    notify: str | None = Field(description="Notify party name with address")
-    vessel: str | None = Field(description=(
-        "Name of the ocean vessel carrying the shipment. "
-        "Commonly labeled as 'Vessel', 'Vessel Name', or 'Carrier Vessel'."
+    bill_of_lading: str = Field(description=(
+        "Unique Bill of Lading (B/L) number assigned to the shipment. "
+        "Typically found under 'Bill of Lading No.', 'B/L No.', or similar labels."
     ))
-    voyage: str | None = Field(description=(
+    shipper: BaseCompanySchema = Field(description=(
+        "Information about the shipper (exporter), responsible for sending the cargo. "
+        "Commonly found under 'Shipper', 'Exporter', or 'Consignor'."
+    ))
+    consignee: CompanyWithNumbersSchema = Field(description=(
+        "Information about the consignee (importer or receiver of goods). "
+        "Commonly found under 'Consignee' or 'Receiver'. "
+        "Includes company name, country, and tax identification numbers (ИНН/КПП)."
+    ))
+    notify: CompanyWithNumbersSchema = Field(description=(
+        "Information about the Notify Party (the entity that should be informed upon cargo arrival). "
+        "Commonly found under 'Notify Party'. "
+        "Includes company name, country, and tax identification numbers (ИНН/КПП)."
+    ))
+    vessel: str = Field(description=(
+        "Name of the ocean vessel carrying the shipment. "
+        "Commonly found under 'Vessel', 'Vessel Name', or 'Carrier Vessel'."
+    ))
+    voyage: str = Field(description=(
         "Voyage number assigned to the vessel for this shipment. "
         "Common labels include 'Voyage No.', 'Voy. No.', or 'Voyage'."
     ))
-    port_of_loading: str | None = Field(description="Port where the cargo is loaded onto the vessel")
-    port_of_discharge: str | None = Field(description="Port where the cargo is discharged from the vessel.")
+    port_of_loading: str = Field(description="Port where the cargo is loaded onto the vessel")
+    port_of_discharge: str = Field(description="Port where the cargo is discharged from the vessel.")
     containers: list[ContainersSchema]
