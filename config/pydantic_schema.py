@@ -24,7 +24,8 @@ class ContainersSchema(BaseModel):
         "Unique container number following ISO 6346 format. "
         "It consists of 4 letters (owner code + 'U') followed by 7 digits (e.g., 'MSKU1234567'). "
         "Ensure it is strictly in the format '[A-Z]{3}U\\s?\\d{7}'. "
-        "Container numbers often appear in sections labeled 'Container No.', 'CNTR NO.', 'Container Number', or within 'Marks & Nos.'."
+        "Container numbers often appear in sections labeled 'Container No.', 'CNTR NO.', 'Container Number', or within 'Marks & Nos.'. "
+        "In cases where the container number appears in a structured format such as 'SIZE/CONTAINER/SEAL/OTHER_DATA', extract only the container number."
     ))
     container_goods: str | None = Field(description=(
         "Description of the goods inside the container. "
@@ -37,13 +38,17 @@ class ContainersSchema(BaseModel):
         "They are typically alphanumeric (e.g., 'ML-CN8621330', 'ALPHA123456') or numeric (e.g., '987654321'). "
         "Commonly found in columns labeled 'Seal No.', 'Seal #', 'Security Seal', or 'Seals'. "
         "Seal numbers are always linked to a specific container and often listed next to the container number. "
-        "Seals may also be embedded in a structured format such as 'CONTAINER/SIZE/SEAL' (e.g., 'VSTU9002514/40HC/NSPL0808'). "
+        "Seals may also be embedded in a structured format such as 'SIZE_TYPE/CONTAINER/SEAL/OTHER_DATA' (e.g., '40HC/VSTU9002514/NSPL0808'). "
         "In such cases, extract only the seal number(s) and exclude container number, size, and other values like weights or product references. "
         "If multiple seals exist, return all of them in the order they appear."
     ))
-    size: int = Field(description="Container size in feet, typically 20, 40, or 45.")
+    size: int = Field(description=(
+        "Container size in feet, typically 20, 40, or 45."
+        "If found in a structured format like 'SIZE_TYPE/CONTAINER/SEAL/OTHER_DATA', extract only the numerical size value."
+    ))
     type: ContainerNameEnum = Field(description=(
-        "Standardized container type code (e.g., 'DC' for Dry Container, 'HC' for High Cube)."
+        "Standardized container type code (e.g., 'DC' for Dry Container, 'HC' for High Cube). "
+        "If found in a structured format such as 'SIZE_TYPE/CONTAINER/SEAL/OTHER_DATA', extract only the container type."
     ))
     gross_weight: float | None = Field(description=(
         "Total weight of the container including goods, in kilograms (kg). "
