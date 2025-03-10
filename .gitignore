@@ -62,3 +62,8 @@ docker-compose.override.yml
 
 # Исключения
 !.gitignore
+
+#
+valid/ground_truth
+valid/predictions
+test.ipynb
