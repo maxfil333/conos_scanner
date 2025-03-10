@@ -38,7 +38,6 @@ def run_chat(*file_paths: str,
              model=config['GPTMODEL'],
              text_content: list | None = None
              ) -> str:
-
     if text_content:
         content = '\n'.join(text_content)
     else:
@@ -69,12 +68,11 @@ def run_chat(*file_paths: str,
 
 
 def run_chat_pydantic(*file_paths: str,
-                      response_format_pydantic,
+                      response_format,
                       prompt=config['system_prompt'],
                       model=config['GPTMODEL'],
                       text_content: list | None = None,
                       ) -> str:
-
     if text_content:
         content = '\n'.join(text_content)
     else:
@@ -89,13 +87,13 @@ def run_chat_pydantic(*file_paths: str,
 
     response = client.beta.chat.completions.parse(
         model=model,
-        temperature=0.1,
+        temperature=.05,
         messages=[
             {"role": "system", "content": prompt},
             {"role": "user", "content": content}
         ],
         max_tokens=3000,
-        response_format=response_format_pydantic,
+        response_format=response_format,
     )
 
     log_response(response=response, time_start=start)

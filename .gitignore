@@ -20,7 +20,7 @@ venv/
 ENV/
 env/
 .venv/
-.env
+*.env
 encrypted.env
 
 # Игнорировать файлы, скомпилированные Python
@@ -62,3 +62,8 @@ docker-compose.override.yml
 
 # Исключения
 !.gitignore
+
+#
+valid/ground_truth
+valid/predictions
+test.ipynb

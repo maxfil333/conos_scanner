@@ -2,9 +2,12 @@ import os
 import sys
 import json
 import msvcrt
+from dotenv import load_dotenv
 
 from src.logger import logger
+from config.pydantic_schema import PydanticSchema
 
+load_dotenv("../config/paths.env")
 
 config: dict = dict()
 running_params: dict = dict()
@@ -19,7 +22,7 @@ if getattr(sys, 'frozen', False):  # в сборке
     config['magick_exe'] = os.path.join(sys._MEIPASS, 'magick', 'magick.exe')
 else:
     config['BASE_DIR'] = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    config['POPPLER_PATH'] = r'C:\Program Files\poppler-22.01.0\Library\bin'
+    config['POPPLER_PATH'] = os.getenv("POPPLER_PATH")
     config['magick_exe'] = 'magick'  # или полный путь до ...magick.exe файла, если не добавлено в Path
 
 config['CONFIG'] = os.path.join(config['BASE_DIR'], 'config')
@@ -66,10 +69,9 @@ except FileNotFoundError as e:
 
 class ConfigNames:
     goods = 'containers'
-    name = 'container goods'
+    name = 'container_goods'
     container = 'container'
     seals = 'seals'
-
 
 NAMES = ConfigNames()
 
@@ -77,70 +79,8 @@ NAMES = ConfigNames()
 config['valid_ext'] = ['.pdf', '.jpg', '.jpeg', '.png']
 config['excel_ext'] = ['.xls', '.xltx', '.xlsx']
 
-JSON_SCHEMA = {
-    "name": "document",
-    "strict": True,
-    "schema": {
-        "type": "object",
-        "properties": {
-            "shipper": {"type": "string"},
-            "shippers country": {"type": "string"},
-            "consignee": {"type": "string"},
-            "notify party": {"type": "string"},
-            "bill of lading": {
-                "description": "BL | bill of lading number | b/l number | Waybill number | B/L № | Номер коносамента | К/С",
-                "type": "string"
-            },
-            "containers": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "container": {"type": "string", "description": "[A-Z]{3}U ?[0-9]{7}"},
-                        "container goods": {"type": "string", "description": "name (description) of goods"},
-                        "container size": {
-                            "type": "string",
-                            "enum": ["20", "25", "40", "45"]
-                        },
-                        "container type": {
-                            "type": "string",
-                            "enum": ["GP", "DV", "DC", "TC", "TK", "HC", "OT", "RF", "RH", "VGP", "FT",
-                                     "HCPW(HIGH CUBE PALLET WIDE)", "bulk"]
-                        },
-                        "seals": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "CONTAINER/40RH/<SEAL №>/WEIGH..."
-                        },
-                        "gross weight": {"type": "number"},
-                        "tara weight": {"type": "number"},
-                    },
-                    "required": ["container", "container goods", "container size", "container type", "seals",
-                                 "gross weight", "tara weight"],
-                    "additionalProperties": False
-                }
-            },
-        },
-        "required": [
-            "shipper",
-            "shippers country",
-            "consignee",
-            "notify party",
-            "bill of lading",
-            "containers",
-        ],
-        "additionalProperties": False
-    }
-}
-
-config['response_format'] = {"type": "json_schema", "json_schema": JSON_SCHEMA}
-
-config['system_prompt'] = f"""
-Извлеки данные из коносамента.
-Если какой-то из параметров не найден, впиши значение ''.
-""".strip()
-# TODO: "few-shot" prompting for extracting seals "BMOU1234567/20DC/VT171687"
-
+config['response_format'] = PydanticSchema
+config['system_prompt'] = f"You are an AI specialized in extracting Bill of Lading (BL) data."
 
 logger.print("CONFIG INFO:")
 logger.print('sys.frozen:', getattr(sys, 'frozen', False))
@@ -154,3 +94,5 @@ for k, v in config.items():
 
 if __name__ == '__main__':
     pass
+
+
